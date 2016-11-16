@@ -1,0 +1,16 @@
+<!-- main start-->
+
+<!-- views/posts/index.ejs -->
+<div class="new">
+  <h3>New Post</h3>
+  <form class="posts_form" action="/postings" method="post">
+    <label>Title</label>
+    <input type="text" name="post[title]" value="">
+    <label>Body</label>
+    <textarea name="post[body]"></textarea>
+    <button type="submit">Submit</button>
+  </form>
+  <a href="/postings"><button>Back</button><a>
+</div>
+
+<!-- main end -->

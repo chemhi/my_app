@@ -1,0 +1,27 @@
+<!-- main start -->
+
+<!-- views/posts/show.ejs -->
+<div class="show">
+  <h3><%= data.title %></h3>
+  <div class="time">Created at <br>
+    <%= data.createdAt.toLocaleDateString() %> <br>
+    <%= data.createdAt.toLocaleTimeString() %>
+  </div>
+  <% if(data.updatedAt) { %>
+    <div class="time">Updated at <br>
+      <%= data.updatedAt.toLocaleDateString() %> <br>
+      <%= data.updatedAt.toLocaleTimeString() %>
+    </dev>
+  <% } %>
+  <p class="body"><%= data.body %><p>
+  <div class="tools">
+    <a href="/postings/<%=data._id%>/edit"><button>Edit</button></a>
+    <!-- Delete button here -->
+    <form class="btn_delete" action="/postings/<%=data._id%>?_method=delete" method="post">
+      <button type="submit">Delete</button>
+    </form>
+  </dev>
+  <a href="/postings"><button>Back</button><a>
+</dev>
+
+<!-- main end -->
