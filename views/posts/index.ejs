@@ -15,12 +15,23 @@
       <!-- views/posts/index.ejs -->
       <div class="index">
         <a href="/postings/new"><button>New</button></a>
+        <% if(user) {%>
+          <a href="/logout" class="float_right"><button>Logout</button></a>
+          <a href="/users/<%= user._id %>" class="float_right"><button>My Profile (<%= user.nickname %>)</button></a>
+        <% } else {%>
+          <a href="/login" class="float_right"><button>Login</button></a>
+          <a href="/users/new" class="float_right"><button>Sign up</button></a>
+        <% } %>
         <ul>
-          <li class="header"> Title <span>Date</span></li>
+          <li class="header"> Title
+            <span class="float_right">Date</span>
+            <span class="float_right">Author</span>
+          </li>
           <% data.forEach(function(e){ %>
           <li>
             <a href="/postings/<%= e._id %>"><%= e.title %></a>
-            <span><%= e.createdAt.toLocaleDateString() %></span>
+            <span class="flaot_right"><%= e.createdAt.toLocaleDateString() %></span>
+            <span class="float_right"><%= e.author.nickname %></span>
           </li>
           <% }) %>
         </ul>

@@ -71,13 +71,18 @@ footer{
 .posts .show .tools{
   margin-bottom:20px;
 }
-.posts .posts_form{
+.posts .posts_form,
+.login .login_form,
+.users .users_form{
   display:block;
   width: 400px;
   margin: 0 auto;
   margin-bottom:20px;
 }
-.posts .posts_form label{
+.posts .posts_form label,
+.login .login_form label,
+.users .users_form label,
+{
   display:block;
   margin:5px 0;
 }
@@ -89,4 +94,16 @@ footer{
   margin-bottom:10px;
   width:400px;
   height: 100px;
+}
+.login .submit_btn,
+.users .submit_btn{
+  display: block;
+  margin-top: 10px;
+}
+.users .show .content{
+  padding-left:15px;
+  padding-bottom:20px;
+}
+.users .show .user_info{
+  font-size: 17px;
 }

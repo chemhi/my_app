@@ -24,17 +24,36 @@ db.on("error",function(err){
 var postSchema = mongoose.Schema({
   title: {type:String, required:true},
   body: {type:String, required:true},
+  author: {type:mongoose.Schema.Types.ObjectId, ref:'user', required:true },
   createdAt:{type:Date, default:Date.now},
   updatedAt:Date
 });
 var Post = mongoose.model('post',postSchema);
 
+var bcrypt = require("bcrypt-nodejs");
 var userSchema = mongoose.Schema({
   email: {type:String, required:true, unique:true},
   nickname: {type:String, required:true, unique:true},
   password: {type:String, required:true},
   createdAt: {type:String, default:Date.now}
 });
+userSchema.pre("save", function (next){
+  var user = this;
+  if(!user.isModified("password")){
+    return next();
+  } else {
+    user.password =bcrypt.hashSync(user.password);
+    return next();
+  }
+});
+userSchema.methods.authenticate = function (password) {
+  var user = this;
+  return bcrypt.compareSync(password,user.password);
+};
+userSchema.methods.hash = function (password) {
+  return bcrypt.hashSync(password);
+};
+
 var User = mongoose.model('user',userSchema);
 
 // view setting
@@ -74,7 +93,7 @@ passport.use('local-login',
           req.flash('email', req.body.email);
           return done(null, false, req.flash('loginError', 'No user found.'));
         }
-        if (user.password != password){
+        if (!user.authenticate(password)){
           req.flash('email', req.body.email);
           return done(null, false, req.flash('loginError', 'password does not Match.'));
         }
@@ -112,8 +131,7 @@ app.get('/logout', function(req,res){
   res.redirect('/');
 });
 
-
-
+//set user routes
 app.get('/users/new',function(req,res){
   res.render('users/new', {
                             formData: req.flash('formData')[0],
@@ -129,13 +147,14 @@ app.post('/users', checkUserRegValidation, function(req,res,next){
     res.redirect('/login');
   });
 }); //create users
-app.get('/user/:id', function(req,res){
+app.get('/users/:id', isLoggedIn, function(req,res){
   User.findById(req.params.id, function (err,user){
     if(err) return res.json({success:false, message:err});
     res.render("users/show",{user: user});
   });
 }); //show users
-app.get('/users/:id/edit', function(req,res){
+app.get('/users/:id/edit', isLoggedIn, function(req,res){
+  if(req.user._id != req.params.id) return res.json({success:false, message:"Unauthorized Attemp"});
   User.findById(req.params.id, function(err,user){
     if(err) return res.json({success:false, message:err});
     res.render('users/edit', {
@@ -148,123 +167,133 @@ app.get('/users/:id/edit', function(req,res){
     );
   });
 }); //edit users
-app.put('/users/:id', checkUserRegValidation, function(req,res) {
+app.put('/users/:id', isLoggedIn, checkUserRegValidation, function(req,res) {
+  if(req.user._id != req.params.id) return res.json({success:false, message:"Unauthrized Attemp"});
   User.findById(req.params.id, req.body.user, function(err,user){
     if(err) return res.json({success:'false', message:err});
-    if(req.body.user.password == user.password){
+    if(user.authenticate(req.body.user.password)){
       if(req.body.user.newPassword){
-        req.body.user.password=req.body.user.newPassword;
+        req.body.user.password = user.hash(req.body.user.newPassword);
+        user.save();
       } else {
         delete req.body.user.password;
       }
-      User.findByIdAndUpdate(req.params.id, req.body.user, function (err,user){
-        if(err) return res.json({success:"false", message:err});
-        res.redirect('/users/'+req.params.id);
-      });
+    User.findByIdAndUpdate(req.params.id, req.body.user, function (err,user){
+      if(err) return res.json({success:"false", message:err});
+      res.redirect('/users/'+req.params.id);
+    });
     } else {
       req.flash("formData", req.body.user);
       req.flash("passwordError","- Invalid password");
-      res.redirect('/users/'+req.params.id+'/edit');
+      res.redirect("/users/"+req.params.id+"/edit");
     }
   });
 }); //update users
 
-// set routes
-app.post("/postings", function(req, res){
-  Post.create(req.body.post, function(err, post){
-    if(err) return res.json({success:false, message:err});
-    res.json({success:true, data:post});
-  });
-}); // create
+// set posts routes
+
 app.get("/postings", function(req,res){
-  Post.find({}).sort('-createdAt').exec(function(err,posts){
+  Post.find({}).populate("author").sort('-createdAt').exec(function(err,posts){
     if(err) return res.json({success:false, message:err});
     res.render("posts/index", {data:posts, user:req.user});
   });
-}); // index
-app.get("/postings/new", function(req,res){
-  res.render("posts/new");
-}); // new
-app.post("/postings", function(req, res) {
-  console.log(req.body);
-  Post.create(req.body.post,function(err,post){
+}); // show posings' index
+
+app.get("/postings/new", isLoggedIn,function(req,res){
+  //console.log("Error Input formData ---");
+  res.render("posts/new", {user:req.user});
+}); // create new postings - 1st
+app.post("/postings", isLoggedIn, function(req, res) {
+  //console.log("Error Input formData 0");
+  req.body.post.author=req.user._id;
+  Post.create(req.body.post, function (err,post){
+    //console.log("Error Input formData 1");
     if(err) return res.json({success:false, message:err});
     res.redirect("/postings");
   });
-});
+}); // create new postings - 2nd
 
 app.get('/postings/:id', function (req, res){
-  Post.findById(req.params.id, function(err, post){
+  Post.findById(req.params.id).populate("author").exec(function (err, post){
     if(err) return res.json({success:false, message:err});
-    res.render("posts/show", {data:post});
+    res.render("posts/show", {data:post, user:req.user});
   });
-}); // showing each other
+}); // show private postings details
 
-app.get('/postings/:id/edit', function (req, res){
+app.get('/postings/:id/edit', isLoggedIn, function(req, res){
   Post.findById(req.params.id, function(err, post){
     if(err) return res.json({success:false, message:err});
-    res.render("posts/edit", {data:post});
+    if(!req.user._id.equals(post.author)) return res.json({success:false, message:"Unauthorized Attempt"});
+    res.render("posts/edit", {data:post, user:req.user});
   });
-}); // edit
-app.put('/postings/:id', function (req,res){
+}); // edit private postings
+app.put('/postings/:id', isLoggedIn, function (req,res){
   req.body.post.updatedAt=Date.now();
-  Post.findByIdAndUpdate(req.params.id, req.body.post, function (err,post){
+  Post.findById(req.params.id, function(err,post){
     if(err) return res.json({success:false, message:err});
-    res.redirect("/postings/"+req.params.id);
+    if(!req.user._id.equals(post.author)) return res.json({success:false, message:"Unauthorized Attempt"});
+    Post.findByIdAndUpdate(req.params.id, req.body.post, function (err,post){
+      if(err) return res.json({success:false, message:err});
+      res.redirect("/postings/"+req.params.id);
     //res.json({sucess:true, message:post._id+" updated"});
+    });
   });
-}); //update
-
-app.delete('/postings/:id', function(req,res){
-  Post.findByIdAndRemove(req.params.id, function (err,post){
+});//update private postings
+app.delete('/postings/:id', isLoggedIn, function(req,res){
+  Post.findById(req.params.id, function(err, post){
     if(err) return res.json({success:false, message:err});
-    res.redirect('/postings');
-    //res.json({success:true, message:post._id+" deleted"});
-  });
-}); //destroy
-/*
-app.get('/', function (req, res){
-  Data.findOne({name:"myData"},function(err,data){
-    if(err) return console.log("Data ERROR:",err);
-    data.count++;
-    data.save(function(err){
-      if(err) return console.log("Data ERROR:", err);
-      res.render("my_first_ejs",data);
+    if(!req.user._id.equals(post.author)) return res.json({success:false, message:"Unauthorized Attempt"});
+    Post.findByIdAndRemove(req.params.id, function (err,post){
+      if(err) return res.json({success:false, message:err});
+      res.redirect('/postings');
     });
   });
-});
-app.get('/reset', function (req, res){
-  setCounter(res,0);
-});
-app.get('/set/count', function (req, res){
-  if(req.params.num)  setCounter(res,req.params.num);
-  else getCounter(res);
-});
-app.get('/set/:num', function (req, res){
-  if(req.params.num)  setCounter(res,req.params.num);
-  else getCounter(res);
-});
+}); //destroy private postings
 
-function setCounter(res,num){
-  console.log("setCounter");
-  Data.findOne({name:"myData"},function(err,data){
-    if(err) return console.log("Data ERROR:",err);
-    data.count=num;
-    data.save(function(err){
-      if(err) return console.log("Data ERROR:",err);
-      res.render("my_first_ejs",data);
-    });
-  });
+//functions
+function isLoggedIn(req, res, next) {
+  if (req.isAuthenticated()){
+    return next();
+  }
+  res.redirect('/');
 }
 
-function getCounter(res){
-  console.log("getCounter");
-  Data.findOne({name:"myData"},function(err,data){
-    if(err) return console.log("Data ERROR:",err);
-    res.render("my_first_ejs",data);
-    });
+function checkUserRegValidation(req, res, next) {
+  var isValid = true;
+
+  async.waterfall(
+    [function(callback) {
+      User.findOne({email: req.body.user.email, _id: {$ne: mongoose.Types.ObjectId(req.params.id)}},
+        function (err, user){
+          if(user){
+            isValid = false;
+            req.flash("emailError","- This email is already resistered.");
+          }
+          callback(null, isValid);
+        }
+      );
+    }, function(isValid, callback){
+      User.findOne({nickname: req.body.user.nickname, _id: {$ne: mongoose.Types.ObjectId(req.params.id)}},
+        function(err,user){
+          if(user){
+            isValid = false;
+            req.flash("nicknameError","- This nickname is already resistered.");
+          }
+          callback(null, isValid);
+        }
+      );
+    }], function(err, isValid){
+      if(err) return res.json({success:"false",message:err});
+      if(isValid){
+        return next();
+      } else {
+        req.flash("formData",req.body.user);
+        res.redirect("back");
+      }
+    }
+  );
 }
-*/
+
 // start server
 app.listen(3000, function(){
   console.log('Server On!');

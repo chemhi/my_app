@@ -1,3 +1,14 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <% include ../partials/head %>
+  </head>
+  <body>
+    <header>
+      <% include ../partials/header %>
+    </header>
+    <div class="posts">
+    <% include partials/top %>
 <!-- main start-->
 
 <!-- views/posts/edit.ejs -->
@@ -8,9 +19,16 @@
     <input type="text" name="post[title]" value="<%=data.title%>">
     <label>Body</label>
     <textarea name="post[body]"><%=data.body%></textarea>
+    <div class="float_right">Author: <%= user.nickname %></div>
     <button type="submit">Submit</button>
   </form>
   <a href="javascript:history.back()"><button>Back</button><a>
 </div>
 
 <!-- main end -->
+    </div><!--posts end -->
+    <footer>
+      <% include ../partials/footer %>
+    </footer>
+  </body>
+</html>
